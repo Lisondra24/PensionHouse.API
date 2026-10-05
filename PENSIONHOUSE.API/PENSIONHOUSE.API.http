@@ -1,0 +1,15 @@
+@PENSIONHOUSE.API_HostAddress = http://localhost:5231
+@host = https://localhost:7263
+
+### Staff login
+POST {{host}}/api/auth/web-login
+Content-Type: application/json
+
+{
+  "email": "staff@norberto.com",
+  "password": "Staff@123"
+}
+GET {{PENSIONHOUSE.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
