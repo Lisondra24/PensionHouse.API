@@ -6,13 +6,41 @@ using Microsoft.AspNetCore.Mvc;
 [Authorize]
 public class RoomsController : ControllerBase
 {
+    private const int MaxPhotos = 10;
+
     private readonly IRoomRepository _repo;
 
     public RoomsController(IRoomRepository repo) => _repo = repo;
 
     private bool IsManager => User.IsInRole("staff") || User.IsInRole("admin");
 
+    // Cleans the photo list (trim, drop blanks and duplicates) and returns an error message if it is invalid.
+    private static string? CheckPhotos(RoomRequest req)
+    {
+        if (req.Photos is null) return null;
+
+        req.Photos = req.Photos
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Distinct()
+            .ToList();
+
+        if (req.Photos.Count > MaxPhotos)
+            return $"A room can have at most {MaxPhotos} photos.";
+
+        foreach (var p in req.Photos)
+        {
+            if (p.Length > 300 ||
+                !Uri.TryCreate(p, UriKind.Absolute, out var uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                return "Each photo must be a valid http or https address of at most 300 characters.";
+        }
+
+        return null;
+    }
+
     // Everyone logged in (mobile + web). Only staff/admin can include inactive rooms.
+    // Each room includes "photos" (all photo URLs, first = cover) and "imageUrl" (the cover).
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] bool includeInactive = false)
         => Ok(await _repo.ListAsync(includeInactive && IsManager));
@@ -33,6 +61,10 @@ public class RoomsController : ControllerBase
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> Create(RoomRequest req)
     {
+        var photoError = CheckPhotos(req);
+        if (photoError != null)
+            return BadRequest(new { message = photoError });
+
         var id = await _repo.CreateAsync(req);
         if (id == -1)
             return Conflict(new { message = "Room number already exists." });
@@ -44,6 +76,10 @@ public class RoomsController : ControllerBase
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> Update(int id, RoomRequest req)
     {
+        var photoError = CheckPhotos(req);
+        if (photoError != null)
+            return BadRequest(new { message = photoError });
+
         var result = await _repo.UpdateAsync(id, req);
         if (result == -1) return Conflict(new { message = "Room number already exists." });
         if (result == 0) return NotFound(new { message = "Room not found." });

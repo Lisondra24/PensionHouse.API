@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Text.Json;
 using Dapper;
 using Microsoft.Data.SqlClient;
 
@@ -41,12 +42,20 @@ public class RoomRepository : IRoomRepository
 
         var rooms = (await multi.ReadAsync<Room>()).ToList();
         var rates = (await multi.ReadAsync<RoomRate>()).ToList();
+        var photos = (await multi.ReadAsync<RoomPhotoRow>()).ToList();
 
         foreach (var room in rooms)
+        {
             room.Rates = rates.Where(x => x.RoomId == room.Id).ToList();
+            room.Photos = photos.Where(x => x.RoomId == room.Id).Select(x => x.Url).ToList();
+        }
 
         return rooms;
     }
+
+    // null = leave the room's photos unchanged; a list (even empty) replaces them.
+    private static string? PhotosJson(RoomRequest r)
+        => r.Photos is null ? null : JsonSerializer.Serialize(r.Photos);
 
     public Task<List<Room>> ListAsync(bool includeInactive)
         => QueryRoomsAsync(new { Action = "LIST", IncludeInactive = includeInactive });
@@ -55,10 +64,10 @@ public class RoomRepository : IRoomRepository
         => QueryRoomsAsync(new { Action = "AVAILABLE", CheckIn = checkIn, Hours = hours });
 
     public Task<int> CreateAsync(RoomRequest r)
-        => ExecAsync(new { Action = "CREATE", r.RoomNo, r.Title, r.Description, r.Capacity, r.ImageUrl });
+        => ExecAsync(new { Action = "CREATE", r.RoomNo, r.Title, r.Description, r.Capacity, r.ImageUrl, Photos = PhotosJson(r) });
 
     public Task<int> UpdateAsync(int id, RoomRequest r)
-        => ExecAsync(new { Action = "UPDATE", RoomId = id, r.RoomNo, r.Title, r.Description, r.Capacity, r.ImageUrl });
+        => ExecAsync(new { Action = "UPDATE", RoomId = id, r.RoomNo, r.Title, r.Description, r.Capacity, r.ImageUrl, Photos = PhotosJson(r) });
 
     public Task<int> SetActiveAsync(int id, bool isActive)
         => ExecAsync(new { Action = "SET_ACTIVE", RoomId = id, IsActive = isActive });

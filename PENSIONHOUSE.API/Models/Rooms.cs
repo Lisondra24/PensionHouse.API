@@ -15,6 +15,9 @@
     public DateTime? CurrentCheckIn { get; set; }
     public DateTime? CurrentCheckOut { get; set; }
 
+    // All photo URLs in display order. The first one is the cover (same as ImageUrl).
+    public List<string> Photos { get; set; } = new();
+
     public List<RoomRate> Rates { get; set; } = new();
 }
 
@@ -26,4 +29,11 @@ public class RoomRate
     public int Hours { get; set; }
     public decimal Price { get; set; }
     public bool IsActive { get; set; }
+}
+
+// Used by the repository to read the photos result set.
+public class RoomPhotoRow
+{
+    public int RoomId { get; set; }
+    public string Url { get; set; } = "";
 }

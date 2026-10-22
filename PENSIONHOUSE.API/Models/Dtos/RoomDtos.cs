@@ -14,8 +14,12 @@ public class RoomRequest
     [Range(1, 20)]
     public int Capacity { get; set; } = 2;
 
+    // Cover photo. Kept for older clients; when Photos is sent, the first photo becomes the cover.
     [StringLength(300)]
     public string? ImageUrl { get; set; }
+
+    // Ordered photo URLs (first = cover). null = leave the room's photos unchanged.
+    public List<string>? Photos { get; set; }
 }
 
 public class RateRequest
