@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+// Keep your own usings/namespaces for the repositories and JwtService here
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,33 +40,29 @@ builder.Services
             ValidAudience = builder.Configuration["Jwt:Audience"],
 
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(
-                    builder.Configuration["Jwt:Key"]!))
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
         };
     });
 
-// Authorization
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    // Only redirect to HTTPS in production, so PHP and Flutter
+    // don't get redirected to a port/certificate they can't use
+    app.UseHttpsRedirection();
+}
 
-// HTTPS
-app.UseHttpsRedirection();
-
-// Authentication
 app.UseAuthentication();
-
-// Authorization
 app.UseAuthorization();
 
-// Controllers
 app.MapControllers();
 
 app.Run();
