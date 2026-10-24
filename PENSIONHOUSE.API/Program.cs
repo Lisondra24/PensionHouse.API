@@ -53,10 +53,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-else
+
+if (!app.Environment.IsDevelopment())
 {
-    // Only redirect to HTTPS in production, so PHP and Flutter
-    // don't get redirected to a port/certificate they can't use
     app.UseHttpsRedirection();
 }
 
