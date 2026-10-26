@@ -48,6 +48,8 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+app.UseCors("dev");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

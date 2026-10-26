@@ -7,7 +7,7 @@
       "applicationUrl": "http://0.0.0.0:32748",
       "sslPort": 44357
     }
-  },
+  },  
   "profiles": {
     "http": {
       "commandName": "Project",
