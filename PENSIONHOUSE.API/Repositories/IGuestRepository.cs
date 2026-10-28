@@ -2,10 +2,17 @@
 using Dapper;
 using Microsoft.Data.SqlClient;
 
+public class GuestIdInfo
+{
+    public string? IdType { get; set; }
+    public string? IdImageFile { get; set; }
+}
+
 public interface IGuestRepository
 {
     Task<List<Guest>> ListAsync(string? search, int? userId);
     Task<int> SetActiveAsync(int userId, bool isActive);
+    Task<GuestIdInfo?> GetIdAsync(int userId);
 }
 
 public class GuestRepository : IGuestRepository
@@ -35,6 +42,14 @@ public class GuestRepository : IGuestRepository
         using var conn = Conn();
         return await conn.ExecuteScalarAsync<int>(SP,
             new { Action = "SET_ACTIVE", UserId = userId, IsActive = isActive },
+            commandType: CommandType.StoredProcedure);
+    }
+
+    public async Task<GuestIdInfo?> GetIdAsync(int userId)
+    {
+        using var conn = Conn();
+        return await conn.QuerySingleOrDefaultAsync<GuestIdInfo>(SP,
+            new { Action = "GET_ID", UserId = userId },
             commandType: CommandType.StoredProcedure);
     }
 }

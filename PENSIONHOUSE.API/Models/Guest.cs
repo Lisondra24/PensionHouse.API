@@ -7,4 +7,6 @@
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public int TotalBookings { get; set; }
+    public string? IdType { get; set; }
+    public bool HasId { get; set; }
 }

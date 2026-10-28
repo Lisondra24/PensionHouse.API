@@ -4,5 +4,6 @@
     Task<IEnumerable<Account>> GetLoginAccountsAsync(string email, string loginType);
 
     // SP_NORBERTODB_CREATE_ACCOUNT
-    Task<int> CreateAccountAsync(string role, string fullName, string email, string passwordHash, string? contactNo);
+    Task<int> CreateAccountAsync(string role, string fullName, string email, string passwordHash,
+                             string? contactNo, string? idType = null, string? idImageFile = null);
 }

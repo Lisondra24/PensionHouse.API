@@ -13,4 +13,10 @@ public class RegisterRequest
 
     [StringLength(20)]
     public string? ContactNo { get; set; }
+
+    [Required, StringLength(50)]
+    public string IdType { get; set; } = "";
+
+    [Required]
+    public IFormFile IdImage { get; set; } = null!;
 }

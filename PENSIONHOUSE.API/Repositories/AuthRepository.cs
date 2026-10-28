@@ -23,7 +23,8 @@ public class AuthRepository : IAuthRepository
             commandType: CommandType.StoredProcedure);
     }
 
-    public async Task<int> CreateAccountAsync(string role, string fullName, string email, string passwordHash, string? contactNo)
+    public async Task<int> CreateAccountAsync(string role, string fullName, string email, string passwordHash,
+                                          string? contactNo, string? idType = null, string? idImageFile = null)
     {
         using var conn = Conn();
         return await conn.ExecuteScalarAsync<int>(
@@ -34,7 +35,9 @@ public class AuthRepository : IAuthRepository
                 FullName = fullName,
                 Email = email,
                 PasswordHash = passwordHash,
-                ContactNo = contactNo
+                ContactNo = contactNo,
+                IdType = idType,
+                IdImageFile = idImageFile
             },
             commandType: CommandType.StoredProcedure);
     }
