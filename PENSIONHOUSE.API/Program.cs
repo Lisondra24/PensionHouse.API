@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +15,7 @@ builder.Services.AddScoped<IGuestRepository, GuestRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 
 // Controllers
 builder.Services.AddControllers();
@@ -98,6 +100,27 @@ if (!app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Marks signed-in admins and staff as "online" (the stored procedure writes at most once a minute per user)
+app.Use(async (ctx, next) =>
+{
+    if (ctx.User.Identity?.IsAuthenticated == true)
+    {
+        var role = ctx.User.FindFirstValue(ClaimTypes.Role);
+        if ((role == "admin" || role == "staff")
+            && int.TryParse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid))
+        {
+            try
+            {
+                await ctx.RequestServices.GetRequiredService<IAuditRepository>().TouchAsync(uid, role);
+            }
+            catch
+            {
+            }
+        }
+    }
+    await next();
+});
 
 app.MapControllers();
 

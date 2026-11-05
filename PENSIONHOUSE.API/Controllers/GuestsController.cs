@@ -7,8 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 public class GuestsController : ControllerBase
 {
     private readonly IGuestRepository _repo;
+    private readonly IAuditRepository _audit;
 
-    public GuestsController(IGuestRepository repo) => _repo = repo;
+    public GuestsController(IGuestRepository repo, IAuditRepository audit)
+    {
+        _repo = repo;
+        _audit = audit;
+    }
 
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] string? search)
@@ -19,6 +24,10 @@ public class GuestsController : ControllerBase
     {
         var rows = await _repo.SetActiveAsync(id, req.IsActive);
         if (rows == 0) return NotFound(new { message = "Guest not found." });
+
+        var guest = (await _repo.ListAsync(null, id)).FirstOrDefault();
+        var name = guest?.FullName ?? $"#{id}";
+        await _audit.LogAsync(this, "Guest", (req.IsActive ? "Enabled guest " : "Disabled guest ") + name);
 
         return Ok(new { message = "Guest updated." });
     }
@@ -36,6 +45,9 @@ public class GuestsController : ControllerBase
         var path = Path.Combine(env.ContentRootPath, "PrivateUploads", "ids", Path.GetFileName(info.IdImageFile));
         if (!System.IO.File.Exists(path))
             return NotFound(new { message = "ID file is missing." });
+
+        var guest = (await _repo.ListAsync(null, id)).FirstOrDefault();
+        await _audit.LogAsync(this, "Guest", "Viewed ID of guest " + (guest?.FullName ?? $"#{id}"));
 
         Response.Headers["Cache-Control"] = "private, no-store";
         Response.Headers["X-Content-Type-Options"] = "nosniff";
