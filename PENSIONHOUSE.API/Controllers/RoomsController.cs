@@ -9,10 +9,22 @@ public class RoomsController : ControllerBase
     private const int MaxPhotos = 10;
 
     private readonly IRoomRepository _repo;
+    private readonly IAuditRepository _audit;
 
-    public RoomsController(IRoomRepository repo) => _repo = repo;
+    public RoomsController(IRoomRepository repo, IAuditRepository audit)
+    {
+        _repo = repo;
+        _audit = audit;
+    }
 
     private bool IsManager => User.IsInRole("staff") || User.IsInRole("admin");
+
+    // "Standard #3" for the audit log
+    private async Task<string> RoomLabelAsync(int id)
+    {
+        var room = (await _repo.ListAsync(true)).FirstOrDefault(r => r.Id == id);
+        return room == null ? $"#{id}" : $"{room.Title} #{room.RoomNo}";
+    }
 
     // Cleans the photo list (trim, drop blanks and duplicates) and returns an error message if it is invalid.
     private static string? CheckPhotos(RoomRequest req)
@@ -69,6 +81,8 @@ public class RoomsController : ControllerBase
         if (id == -1)
             return Conflict(new { message = "Room number already exists." });
 
+        await _audit.LogAsync(this, "Room", $"Added room {req.Title} #{req.RoomNo}");
+
         return Ok(new { message = "Room created.", id });
     }
 
@@ -84,6 +98,8 @@ public class RoomsController : ControllerBase
         if (result == -1) return Conflict(new { message = "Room number already exists." });
         if (result == 0) return NotFound(new { message = "Room not found." });
 
+        await _audit.LogAsync(this, "Room", $"Updated room {req.Title} #{req.RoomNo}");
+
         return Ok(new { message = "Room updated." });
     }
 
@@ -93,6 +109,8 @@ public class RoomsController : ControllerBase
     {
         var rows = await _repo.SetActiveAsync(id, req.IsActive);
         if (rows == 0) return NotFound(new { message = "Room not found." });
+
+        await _audit.LogAsync(this, "Room", $"{(req.IsActive ? "Enabled" : "Disabled")} room {await RoomLabelAsync(id)}");
 
         return Ok(new { message = "Room updated." });
     }
@@ -104,6 +122,8 @@ public class RoomsController : ControllerBase
         var rateId = await _repo.AddRateAsync(id, req);
         if (rateId == -2) return NotFound(new { message = "Room not found." });
 
+        await _audit.LogAsync(this, "Room", $"Added rate \"{req.Label}\" to room {await RoomLabelAsync(id)}");
+
         return Ok(new { message = "Rate added.", id = rateId });
     }
 
@@ -114,6 +134,8 @@ public class RoomsController : ControllerBase
         var rows = await _repo.UpdateRateAsync(rateId, req);
         if (rows == 0) return NotFound(new { message = "Rate not found." });
 
+        await _audit.LogAsync(this, "Room", $"Updated rate \"{req.Label}\" (rate #{rateId})");
+
         return Ok(new { message = "Rate updated." });
     }
 
@@ -123,6 +145,8 @@ public class RoomsController : ControllerBase
     {
         var rows = await _repo.DeleteRateAsync(rateId);
         if (rows == 0) return NotFound(new { message = "Rate not found." });
+
+        await _audit.LogAsync(this, "Room", $"Removed rate #{rateId}");
 
         return Ok(new { message = "Rate removed." });
     }
@@ -138,6 +162,11 @@ public class RoomsController : ControllerBase
             return Conflict(new { message = "A guest is checked in. Complete the booking first." });
         if (result == 0)
             return NotFound(new { message = "Room not found." });
+
+        var label = await RoomLabelAsync(id);
+        await _audit.LogAsync(this, "Room", req.IsMaintenance
+            ? $"Put room {label} under maintenance"
+            : $"Took room {label} out of maintenance");
 
         return Ok(new { message = "Room updated." });
     }

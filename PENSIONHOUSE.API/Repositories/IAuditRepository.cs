@@ -9,6 +9,7 @@ public interface IAuditRepository
     Task AddAsync(int? userId, string? userName, string? role, string category, string details, string? ip, bool isFailed = false);
     Task TouchAsync(int userId, string role);
     Task<List<AuditLog>> ListAsync(string? category, string? search, int limit);
+    Task<List<AuditLog>> ListForUserAsync(int userId, string? role);
     Task<List<OnlineUser>> OnlineAsync();
     Task<AuditStats> StatsAsync();
 }
@@ -56,6 +57,20 @@ public class AuditRepository : IAuditRepository
             new { Action = "LIST", Category = category, Search = search, Limit = limit },
             commandType: CommandType.StoredProcedure);
         return rows.ToList();
+    }
+
+    // Only one person's rows (used by the staff "My activity" tab).
+    // Reads the newest entries from the same stored procedure, then keeps this person's rows.
+    public async Task<List<AuditLog>> ListForUserAsync(int userId, string? role)
+    {
+        using var conn = Conn();
+        var rows = await conn.QueryAsync<AuditLog>(SP,
+            new { Action = "LIST", Category = (string?)null, Search = (string?)null, Limit = 5000 },
+            commandType: CommandType.StoredProcedure);
+
+        return rows
+            .Where(r => r.UserId == userId && string.Equals(r.Role, role, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     public async Task<List<OnlineUser>> OnlineAsync()

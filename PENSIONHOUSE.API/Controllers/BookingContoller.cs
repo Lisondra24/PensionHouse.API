@@ -11,11 +11,13 @@ public class BookingsController : ControllerBase
 
     private readonly IBookingRepository _repo;
     private readonly INotificationRepository _notifications;
+    private readonly IAuditRepository _audit;
 
-    public BookingsController(IBookingRepository repo, INotificationRepository notifications)
+    public BookingsController(IBookingRepository repo, INotificationRepository notifications, IAuditRepository audit)
     {
         _repo = repo;
         _notifications = notifications;
+        _audit = audit;
     }
 
     private int CurrentId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -103,10 +105,15 @@ public class BookingsController : ControllerBase
         if (method != "CASH" && method != "GCASH")
             return BadRequest(new { message = "Payment method must be CASH or GCASH." });
 
+        var guestName = req.GuestName.Trim();
+
         var id = await _repo.CreateAsync(
-            null, req.GuestName.Trim(), req.GuestContact?.Trim(), req.RoomId, req.RateId,
+            null, guestName, req.GuestContact?.Trim(), req.RoomId, req.RateId,
             req.CheckIn ?? DateTime.Now, "WALKIN", method,
             req.ReferenceCode?.Trim().ToUpperInvariant(), req.IdType.Trim());
+
+        if (id > 0)
+            await _audit.LogAsync(this, "Booking", $"Created a walk-in booking for {guestName} (booking #{id}, {method})");
 
         return MapCreateResult(id);
     }
@@ -140,6 +147,8 @@ public class BookingsController : ControllerBase
         var rows = await _repo.UpdateStatusAsync(id, status, null);
         if (rows == 0)
             return BadRequest(new { message = "That status change isn't allowed for this booking." });
+
+        await _audit.LogAsync(this, "Booking", $"Changed booking #{id} to {status.Replace('_', ' ').ToLowerInvariant()}");
 
         return Ok(new { message = "Booking updated." });
     }
