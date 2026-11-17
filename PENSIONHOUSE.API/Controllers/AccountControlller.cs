@@ -277,7 +277,7 @@ public class AccountController : ControllerBase
             "UPDATE PasswordOtps SET UsedAt = SYSDATETIME() WHERE AccountRole = @Role AND AccountId = @Id AND UsedAt IS NULL",
             new { Role = AccountRoleKey, Id = UserId }, tx);
         tx.Commit();
-
+         
         await _audit.LogAsync(this, "Settings", "Changed their password");
 
         // Best effort: the password is already changed, so a mail problem must not turn this into an error
