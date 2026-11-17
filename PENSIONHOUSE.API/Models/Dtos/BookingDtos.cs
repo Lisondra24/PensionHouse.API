@@ -41,6 +41,9 @@ public class UpdateStatusRequest
 public class ReviewPaymentRequest
 {
     [Required] public string Decision { get; set; } = "";   // APPROVED or REJECTED
+
+    [StringLength(300)]
+    public string? Reason { get; set; }                     // required when REJECTED
 }
 
 public class ExtendBookingRequest

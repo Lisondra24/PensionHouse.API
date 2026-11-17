@@ -40,11 +40,15 @@ public class AuthController : ControllerBase
     private readonly string _connStr;
     private readonly byte[] _otpKey;
     private readonly LoginThrottle _throttle;
+    private readonly EmailVerificationService _verify;   // CHANGED: new
 
+    // CHANGED: takes the EmailVerificationService
     public AuthController(IAuthRepository repo, JwtService jwt, IWebHostEnvironment env,
                           IConfiguration config, IEmailSender email, IAuditRepository audit,
-                          ILogger<AuthController> log, LoginThrottle throttle)
+                          ILogger<AuthController> log, LoginThrottle throttle,
+                          EmailVerificationService verify)
     {
+        _verify = verify;
         _throttle = throttle;
         _repo = repo;
         _jwt = jwt;
@@ -121,7 +125,20 @@ public class AuthController : ControllerBase
                 : BadRequest(new { message = "Could not create the account." });
         }
 
-        return Ok(new { message = "Registration successful.", id });
+        // CHANGED: the new account starts unverified (Users.EmailVerified defaults to 0).
+        // Email the 6-digit code now; the app then shows the verify screen.
+        var newEmail = Normalize(req.Email);
+        await _verify.SendCodeAsync(id, newEmail, req.FullName.Trim(), ClientIp);
+
+        return Ok(new
+        {
+            message = "Registration successful. We emailed you a 6-digit code to verify your email.",
+            id,
+            email = newEmail,
+            verificationRequired = true,
+            expiresInSeconds = EmailVerificationService.OtpMinutes * 60,
+            resendInSeconds = EmailVerificationService.ResendSeconds
+        });
     }
 
     // Checks the real file header, not just the file name
@@ -190,6 +207,21 @@ public class AuthController : ControllerBase
                     "Login", "Blocked sign-in (account is disabled)", ClientIp, true);
 
             return StatusCode(403, new { message = "This account is disabled." });
+        }
+
+        // CHANGED: mobile guests must verify their email before they get a token
+        if (!isWeb && string.Equals(account.Role, "user", StringComparison.OrdinalIgnoreCase)
+            && !await _verify.IsVerifiedAsync(account.Id))
+        {
+            await _verify.SendCodeAsync(account.Id, account.Email, account.FullName, ClientIp);
+            _throttle.Success(email, ClientIp);   // the password was right
+            return StatusCode(403, new
+            {
+                code = "EMAIL_NOT_VERIFIED",
+                email = account.Email,
+                message = "Please verify your email first. We sent a 6-digit code to your inbox.",
+                resendInSeconds = EmailVerificationService.ResendSeconds
+            });
         }
 
         _throttle.Success(email, ClientIp);

@@ -9,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Repositories
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.AddSingleton<EmailVerificationService>();
+builder.Services.AddScoped<PaymentRejectionService>();
 builder.Services.AddSingleton<IEmailSender, EmailSender>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();

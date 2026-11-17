@@ -61,4 +61,46 @@ public static class EmailTemplates
 
         return (Shell("Your Pension House password was changed", "Password changed", inner), text);
     }
+
+    public static (string Html, string Text) VerifyEmailCode(string fullName, string code, int minutes)
+    {
+        var name = WebUtility.HtmlEncode(FirstName(fullName));
+
+        var inner =
+            $"<p style=\"margin:0 0 18px 0;font-size:14px;line-height:1.7;\">Hi {name}, welcome to Pension House! Use this code to verify your email address.</p>"
+          + $"<div style=\"margin:0 0 18px 0;padding:18px 12px 18px 22px;background:#f3f6f5;border:1px solid #dfe8e5;border-radius:12px;text-align:center;font-family:Consolas,Menlo,monospace;font-size:34px;font-weight:700;letter-spacing:10px;color:{Teal};\">{code}</div>"
+          + $"<p style=\"margin:0 0 10px 0;font-size:13px;line-height:1.7;\">This code expires in <strong>{minutes} minutes</strong> and can only be used once.</p>"
+          + "<p style=\"margin:0 0 22px 0;font-size:13px;line-height:1.7;color:#5f7772;\">Never share this code with anyone.</p>"
+          + "<p style=\"margin:0 0 22px 0;padding:12px 14px;background:#fff7f4;border:1px solid #f3d3c9;border-radius:10px;font-size:12.5px;line-height:1.6;color:#7a3a2a;\">Didn’t create an account? You can ignore this email.</p>";
+
+        var text =
+            $"Hi {FirstName(fullName)},\n\n"
+          + $"Your Pension House email verification code is: {code}\n\n"
+          + $"It expires in {minutes} minutes and can only be used once.\n"
+          + "Never share this code with anyone.\n\n"
+          + "Didn’t create an account? Ignore this email.";
+
+        return (Shell($"Your Pension House verification code is {code}", "Verify your email", inner), text);
+    }
+
+    public static (string Html, string Text) PaymentRejected(string fullName, string bookingCode, string reason)
+    {
+        var name = WebUtility.HtmlEncode(FirstName(fullName));
+        var why = WebUtility.HtmlEncode(reason);
+        var code = WebUtility.HtmlEncode(bookingCode);
+
+        var inner =
+            $"<p style=\"margin:0 0 14px 0;font-size:14px;line-height:1.7;\">Hi {name}, we could not approve your GCash payment for booking <strong>{code}</strong>, so the booking was cancelled.</p>"
+          + "<p style=\"margin:0 0 6px 0;font-size:13px;font-weight:600;\">Reason</p>"
+          + $"<p style=\"margin:0 0 18px 0;padding:12px 14px;background:#fff7f4;border:1px solid #f3d3c9;border-radius:10px;font-size:13.5px;line-height:1.6;color:#7a3a2a;\">{why}</p>"
+          + "<p style=\"margin:0 0 22px 0;font-size:13px;line-height:1.7;color:#5f7772;\">You are welcome to book again with the correct payment details, or contact the front desk if you think this was a mistake.</p>";
+
+        var text =
+            $"Hi {FirstName(fullName)},\n\n"
+          + $"We could not approve your GCash payment for booking {bookingCode}, so the booking was cancelled.\n\n"
+          + $"Reason: {reason}\n\n"
+          + "You are welcome to book again with the correct payment details, or contact the front desk if you think this was a mistake.";
+
+        return (Shell("Your payment could not be approved", "Payment rejected", inner), text);
+    }
 }

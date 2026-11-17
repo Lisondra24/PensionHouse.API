@@ -12,12 +12,15 @@ public class BookingsController : ControllerBase
     private readonly IBookingRepository _repo;
     private readonly INotificationRepository _notifications;
     private readonly IAuditRepository _audit;
+    private readonly PaymentRejectionService _rejections;
 
-    public BookingsController(IBookingRepository repo, INotificationRepository notifications, IAuditRepository audit)
+    public BookingsController(IBookingRepository repo, INotificationRepository notifications,
+                              IAuditRepository audit, PaymentRejectionService rejections)
     {
         _repo = repo;
         _notifications = notifications;
         _audit = audit;
+        _rejections = rejections;
     }
 
     private int CurrentId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -78,10 +81,15 @@ public class BookingsController : ControllerBase
         return MapCreateResult(id);
     }
 
+    // CHANGED: adds the rejection reason to bookings whose payment was rejected
     [HttpGet("mine")]
     [Authorize(Roles = "user")]
     public async Task<IActionResult> Mine()
-        => Ok(await _repo.ListAsync(CurrentId, null, null, null));
+    {
+        var list = (await _repo.ListAsync(CurrentId, null, null, null)).ToList();
+        await _rejections.FillBookingsAsync(list);
+        return Ok(list);
+    }
 
     [HttpPatch("{id:int}/cancel")]
     [Authorize(Roles = "user")]
@@ -124,6 +132,7 @@ public class BookingsController : ControllerBase
         => Ok(await _repo.ListAsync(null, status, null, source));
 
     // Staff/admin can open any booking; a guest only their own
+    // CHANGED: adds the rejection reason when the payment was rejected
     [HttpGet("{id:int}")]
     public async Task<IActionResult> Get(int id)
     {
@@ -133,6 +142,7 @@ public class BookingsController : ControllerBase
         if (User.IsInRole("user") && booking.UserId != CurrentId)
             return Forbid();
 
+        await _rejections.FillBookingsAsync(new[] { booking });
         return Ok(booking);
     }
 

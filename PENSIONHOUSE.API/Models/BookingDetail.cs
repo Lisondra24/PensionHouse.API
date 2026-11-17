@@ -21,4 +21,6 @@
     public string? PaymentMethod { get; set; }
     public string? PaymentStatus { get; set; }
     public string? ReferenceCode { get; set; }
+
+        public string? RejectReason { get; set; }
 }

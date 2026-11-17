@@ -15,4 +15,5 @@
     public string? ReviewedByRole { get; set; }
     public DateTime? ReviewedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+     public string? RejectReason { get; set; }
 }
