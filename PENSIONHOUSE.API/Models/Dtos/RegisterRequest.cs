@@ -8,7 +8,8 @@ public class RegisterRequest
     [Required, EmailAddress, StringLength(150)]
     public string Email { get; set; } = "";
 
-    [Required, MinLength(6), StringLength(100)]
+    [Required, StringLength(PasswordRules.Max, MinimumLength = PasswordRules.Min,
+        ErrorMessage = "The password must be 8 to 32 characters.")]
     public string Password { get; set; } = "";
 
     [StringLength(20)]

@@ -213,10 +213,11 @@ public class AccountController : ControllerBase
 
         if (!Regex.IsMatch(otp, "^[0-9]{6}$"))
             return BadRequest(new { message = "Enter the 6-digit code we emailed you." });
-        if (neu.Length < 8)
-            return BadRequest(new { message = "The new password must be at least 8 characters." });
-        if (neu.Length > 72)   // BCrypt ignores anything past 72 characters
-            return BadRequest(new { message = "The new password can be at most 72 characters." });
+
+        // 8 to 32 characters, the same rule everywhere (see PasswordRules.cs)
+        var pwError = PasswordRules.Check(neu);
+        if (pwError != null)
+            return BadRequest(new { message = pwError });
 
         using var conn = Conn();
         await conn.OpenAsync();

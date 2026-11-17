@@ -39,11 +39,13 @@ public class AuthController : ControllerBase
     private readonly ILogger<AuthController> _log;
     private readonly string _connStr;
     private readonly byte[] _otpKey;
+    private readonly LoginThrottle _throttle;
 
     public AuthController(IAuthRepository repo, JwtService jwt, IWebHostEnvironment env,
                           IConfiguration config, IEmailSender email, IAuditRepository audit,
-                          ILogger<AuthController> log)
+                          ILogger<AuthController> log, LoginThrottle throttle)
     {
+        _throttle = throttle;
         _repo = repo;
         _jwt = jwt;
         _env = env;
@@ -147,8 +149,22 @@ public class AuthController : ControllerBase
 
     private async Task<IActionResult> AuthenticateAsync(LoginRequest req, string loginType)
     {
-        var accounts = (await _repo.GetLoginAccountsAsync(Normalize(req.Email), loginType)).ToList();
+        var email = Normalize(req.Email);
         var isWeb = loginType == LoginType.Web;   // only staff/admin sign-ins go into the audit log
+
+        // Too many wrong passwords from this email + device: make them wait
+        var wait = _throttle.SecondsLocked(email, ClientIp);
+        if (wait > 0)
+        {
+            Response.Headers["Retry-After"] = wait.ToString();
+            return StatusCode(429, new
+            {
+                message = $"Too many failed sign-ins. Please try again in {LoginThrottle.Describe(wait)}.",
+                retryAfterSeconds = wait
+            });
+        }
+
+        var accounts = (await _repo.GetLoginAccountsAsync(email, loginType)).ToList();
 
         // The SP returns staff before admin, so this keeps that priority
         var account = accounts.FirstOrDefault(a =>
@@ -156,6 +172,8 @@ public class AuthController : ControllerBase
 
         if (account == null)
         {
+            _throttle.Fail(email, ClientIp);
+
             // Right email, wrong password: record it on that account so it shows in their log
             var known = accounts.FirstOrDefault();
             if (isWeb && known != null)
@@ -173,6 +191,8 @@ public class AuthController : ControllerBase
 
             return StatusCode(403, new { message = "This account is disabled." });
         }
+
+        _throttle.Success(email, ClientIp);
 
         if (isWeb)
             await _audit.AddAsync(account.Id, account.FullName, account.Role.ToLowerInvariant(),
@@ -318,10 +338,9 @@ public class AuthController : ControllerBase
 
         if (!Regex.IsMatch(otp, "^[0-9]{6}$"))
             return BadRequest(new { message = "Enter the 6-digit code we emailed you." });
-        if (neu.Length < 8)
-            return BadRequest(new { message = "The new password must be at least 8 characters." });
-        if (neu.Length > 72)   // BCrypt ignores anything past 72 characters
-            return BadRequest(new { message = "The new password can be at most 72 characters." });
+        var pwError = PasswordRules.Check(neu);
+        if (pwError != null)
+            return BadRequest(new { message = pwError });
 
         // Every failure says the same thing, so this cannot be used to find valid emails or count attempts
         var wrongCode = BadRequest(new { message = "That code isn’t correct or has expired. Check it, or request a new one." });

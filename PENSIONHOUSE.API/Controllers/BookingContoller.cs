@@ -152,4 +152,49 @@ public class BookingsController : ControllerBase
 
         return Ok(new { message = "Booking updated." });
     }
+
+    private IActionResult MapExtendError(ExtendResult r) => r.Code switch
+    {
+        -1 => BadRequest(new { message = "This stay can't be extended. It may not be checked in, or it was already changed." }),
+        -2 => BadRequest(new { message = "Extra time must be between 1 and 12 hours." }),
+        -3 => Conflict(new { message = "That reference code was already used." }),
+        -4 => BadRequest(new { message = "A GCash reference code is required." }),
+        -5 => Conflict(new
+        {
+            message = r.NextCheckIn.HasValue
+                ? $"The room is booked from {r.NextCheckIn.Value:h:mm tt}, so it can't be extended that long."
+                : "The room is booked right after this stay."
+        }),
+        -6 => BadRequest(new { message = "No rate covers a stay that long. Check the room's rates." }),
+        _ => StatusCode(500, new { message = "Could not extend the stay." })
+    };
+
+    // Preview the price before the guest pays
+    [HttpGet("{id:int}/extend-quote")]
+    [Authorize(Roles = "staff,admin")]
+    public async Task<IActionResult> ExtendQuote(int id, [FromQuery] int hours)
+    {
+        var r = await _repo.ExtendAsync(id, hours, null, null, true);
+        return r.Code == 1 ? Ok(r) : MapExtendError(r);
+    }
+
+    [HttpPost("{id:int}/extend")]
+    [Authorize(Roles = "staff,admin")]
+    public async Task<IActionResult> Extend(int id, ExtendBookingRequest req)
+    {
+        var method = req.PaymentMethod.Trim().ToUpperInvariant();
+        if (method != "CASH" && method != "GCASH")
+            return BadRequest(new { message = "Payment method must be CASH or GCASH." });
+
+        var refCode = string.IsNullOrWhiteSpace(req.ReferenceCode)
+            ? null : req.ReferenceCode.Trim().ToUpperInvariant();
+
+        var r = await _repo.ExtendAsync(id, req.ExtraHours, method, refCode, false);
+        if (r.Code != 1) return MapExtendError(r);
+
+        var msg = r.ExtraAmount > 0
+            ? $"Stay extended. Collected ₱{r.ExtraAmount:N2}."
+            : "Stay extended. No extra charge.";
+        return Ok(new { message = msg, newCheckOut = r.NewCheckOut, extraAmount = r.ExtraAmount });
+    }
 }

@@ -9,6 +9,9 @@ public interface IBookingRepository
                           string? idType = null);
     Task<List<BookingDetail>> ListAsync(int? userId, string? status, int? bookingId, string? source);
     Task<int> UpdateStatusAsync(int bookingId, string status, int? userId);
+
+    Task<ExtendResult> ExtendAsync(int bookingId, int extraHours, string? paymentMethod,
+                               string? referenceCode, bool quoteOnly);
 }
 
 public class BookingRepository : IBookingRepository
@@ -20,6 +23,22 @@ public class BookingRepository : IBookingRepository
     {
         _connStr = config.GetConnectionString("Default")
             ?? throw new InvalidOperationException("Connection string 'Default' not found.");
+    }
+
+    public async Task<ExtendResult> ExtendAsync(int bookingId, int extraHours, string? paymentMethod,
+                                            string? referenceCode, bool quoteOnly)
+    {
+        using var conn = Conn();
+        var row = await conn.QueryFirstOrDefaultAsync<ExtendResult>(SP, new
+        {
+            Action = quoteOnly ? "EXTEND_QUOTE" : "EXTEND",
+            BookingId = bookingId,
+            ExtraHours = extraHours,
+            PaymentMethod = paymentMethod,
+            ReferenceCode = referenceCode
+        }, commandType: CommandType.StoredProcedure);
+
+        return row ?? new ExtendResult { Code = -99 };
     }
 
     private SqlConnection Conn() => new SqlConnection(_connStr);
@@ -70,4 +89,6 @@ public class BookingRepository : IBookingRepository
             UserId = userId
         }, commandType: CommandType.StoredProcedure);
     }
+
+
 }

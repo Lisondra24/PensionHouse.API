@@ -42,3 +42,24 @@ public class ReviewPaymentRequest
 {
     [Required] public string Decision { get; set; } = "";   // APPROVED or REJECTED
 }
+
+public class ExtendBookingRequest
+{
+    [Required, Range(1, 12)] public int ExtraHours { get; set; }
+    public string PaymentMethod { get; set; } = "CASH";   // CASH or GCASH
+
+    [StringLength(50)]
+    public string? ReferenceCode { get; set; }            // required for GCASH when there is a charge
+}
+
+public class ExtendResult
+{
+    public int Code { get; set; }
+    public DateTime? NewCheckOut { get; set; }
+    public int? TotalHours { get; set; }
+    public string? TierLabel { get; set; }
+    public decimal? PreviousTotal { get; set; }
+    public decimal? NewTotal { get; set; }
+    public decimal? ExtraAmount { get; set; }
+    public DateTime? NextCheckIn { get; set; }
+}

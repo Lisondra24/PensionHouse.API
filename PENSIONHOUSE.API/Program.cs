@@ -18,6 +18,8 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddSingleton<LoginThrottle>();
+builder.Services.AddSingleton<AccountStatus>();
 
 // Controllers
 builder.Services.AddControllers();
@@ -101,6 +103,25 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseAuthentication();
+
+// Blocks a disabled guest or staff member right away (looked up on each request, remembered for 30 seconds)
+app.Use(async (ctx, next) =>
+{
+    if (ctx.User.Identity?.IsAuthenticated == true
+        && int.TryParse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid))
+    {
+        var role = ctx.User.FindFirstValue(ClaimTypes.Role) ?? "";
+        var status = ctx.RequestServices.GetRequiredService<AccountStatus>();
+        if (!await status.IsActiveAsync(role, uid))
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await ctx.Response.WriteAsJsonAsync(new { message = "This account is disabled." });
+            return;
+        }
+    }
+    await next();
+});
+
 app.UseAuthorization();
 
 // Marks signed-in admins and staff as "online" (the stored procedure writes at most once a minute per user)

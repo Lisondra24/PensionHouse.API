@@ -55,8 +55,9 @@ public class StaffAccountsController : ControllerBase
             return BadRequest(new { message = "Enter a valid email address." });
         if (contact is not null && !Regex.IsMatch(contact, @"^[0-9+\-\s]{7,20}$"))
             return BadRequest(new { message = "Enter a valid mobile number, or leave it blank." });
-        if (string.IsNullOrEmpty(req.Password) || req.Password.Length < 8 || req.Password.Length > 72)
-            return BadRequest(new { message = "The password must be 8 to 72 characters." });
+        var pwError = PasswordRules.Check(req.Password);
+        if (pwError != null)
+            return BadRequest(new { message = pwError });
 
         using var conn = Conn();
 
@@ -88,8 +89,9 @@ public class StaffAccountsController : ControllerBase
     [HttpPatch("{id:int}/password")]
     public async Task<IActionResult> ResetPassword(int id, StaffNewPasswordRequest req)
     {
-        if (string.IsNullOrEmpty(req.NewPassword) || req.NewPassword.Length < 8 || req.NewPassword.Length > 72)
-            return BadRequest(new { message = "The password must be 8 to 72 characters." });
+        var pwError = PasswordRules.Check(req.NewPassword);
+        if (pwError != null)
+            return BadRequest(new { message = pwError });
 
         using var conn = Conn();
         var rows = await conn.ExecuteAsync("UPDATE Staff SET PasswordHash = @H WHERE Id = @Id",
