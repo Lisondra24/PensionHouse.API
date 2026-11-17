@@ -130,7 +130,7 @@ app.Use(async (ctx, next) =>
     if (ctx.User.Identity?.IsAuthenticated == true)
     {
         var role = ctx.User.FindFirstValue(ClaimTypes.Role);
-        if ((role == "admin" || role == "staff")
+        if ((role == "admin" || role == "staff" || role == "user")
             && int.TryParse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid))
         {
             try
