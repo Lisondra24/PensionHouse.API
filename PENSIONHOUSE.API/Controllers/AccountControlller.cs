@@ -263,7 +263,7 @@ public class AccountController : ControllerBase
             await _audit.LogAsync(this, "Settings", "Failed password change (wrong code)", true);
 
             return BadRequest(new
-            {
+            { 
                 message = locked
                     ? "Too many wrong codes. Request a new code."
                     : $"That code isn’t correct. {MaxAttempts - attempts} attempt(s) left.",
