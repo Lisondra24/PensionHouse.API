@@ -5,7 +5,7 @@
     public string BookingCode { get; set; } = "";
     public string GuestName { get; set; } = "";
     public string RoomNo { get; set; } = "";
-    public string RoomTitle { get; set; } = "";
+    public string RoomTitle { get; set; } = ""; 
     public DateTime CheckIn { get; set; }
     public DateTime CheckOut { get; set; }
     public string Method { get; set; } = "";
